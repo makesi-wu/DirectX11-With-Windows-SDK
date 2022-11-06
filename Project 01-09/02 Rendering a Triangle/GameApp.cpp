@@ -51,7 +51,7 @@ void GameApp::DrawScene()
     m_pd3dImmediateContext->ClearDepthStencilView(m_pDepthStencilView.Get(), D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
     // 绘制三角形
-    m_pd3dImmediateContext->Draw(3, 0);
+    m_pd3dImmediateContext->Draw(4, 0);
     HR(m_pSwapChain->Present(0, 0));
 }
 
@@ -60,9 +60,11 @@ bool GameApp::InitEffect()
     ComPtr<ID3DBlob> blob;
 
     // 创建顶点着色器
+    // Triangle_VS.cso项目启动的时候会通过HLSL编译器跟随项目自动编译。
     HR(CreateShaderFromFile(L"HLSL\\Triangle_VS.cso", L"HLSL\\Triangle_VS.hlsl", "VS", "vs_5_0", blob.ReleaseAndGetAddressOf()));
     HR(m_pd3dDevice->CreateVertexShader(blob->GetBufferPointer(), blob->GetBufferSize(), nullptr, m_pVertexShader.GetAddressOf()));
     // 创建并绑定顶点布局
+    // 描述传入的顶点属性，属于什么类型，如何组织。
     HR(m_pd3dDevice->CreateInputLayout(VertexPosColor::inputLayout, ARRAYSIZE(VertexPosColor::inputLayout),
         blob->GetBufferPointer(), blob->GetBufferSize(), m_pVertexLayout.GetAddressOf()));
 
@@ -75,6 +77,36 @@ bool GameApp::InitEffect()
 
 bool GameApp::InitResource()
 {
+#ifndef ZuoYe
+    //逆时针节点顺序，背面消隐。
+    //VertexPosColor vertices[] =
+    //{
+    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3(0.5f, -0.5f, 0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+    //    { XMFLOAT3(0.0f, 0.5f, 0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }
+    //};
+    //6顶点绘制平行四边形
+    //VertexPosColor vertices[] =
+    //{
+    //    { XMFLOAT3(0.0f, 0.5f, 0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3(0.5f, -0.5f, 0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3(0.0f, 0.5f, 0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3(1.0f, 0.5f, 0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+    //    { XMFLOAT3(0.5f, -0.5f, 0.5f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+    //};
+
+    //4顶点绘制平行四边形
+    //图元类型D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP
+    // 此时背面消隐模式与D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST时不同
+    //VertexPosColor vertices[] =
+    //{
+    //    { XMFLOAT3(-0.5f, 0.5f, 0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+    //    { XMFLOAT3(0.5f, 0.5f, 0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+    //    { XMFLOAT3(0.5f, -0.5f, 0.5f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) }
+    //};
+#else
     // 设置三角形顶点
     VertexPosColor vertices[] =
     {
@@ -82,6 +114,7 @@ bool GameApp::InitResource()
         { XMFLOAT3(0.5f, -0.5f, 0.5f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
         { XMFLOAT3(-0.5f, -0.5f, 0.5f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) }
     };
+#endif
     // 设置顶点缓冲区描述
     D3D11_BUFFER_DESC vbd;
     ZeroMemory(&vbd, sizeof(vbd));
@@ -106,7 +139,8 @@ bool GameApp::InitResource()
 
     m_pd3dImmediateContext->IASetVertexBuffers(0, 1, m_pVertexBuffer.GetAddressOf(), &stride, &offset);
     // 设置图元类型，设定输入布局
-    m_pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    //m_pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     m_pd3dImmediateContext->IASetInputLayout(m_pVertexLayout.Get());
     // 将着色器绑定到渲染管线
     m_pd3dImmediateContext->VSSetShader(m_pVertexShader.Get(), nullptr, 0);

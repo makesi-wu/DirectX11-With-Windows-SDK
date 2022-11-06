@@ -118,7 +118,8 @@ bool D3DApp::Init()
 
     if (!InitDirect3D())
         return false;
-
+    //ZuoYe();
+    ZuoYe_GenAdapter();
     return true;
 }
 
@@ -374,11 +375,12 @@ bool D3DApp::InitDirect3D()
     createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
     // 驱动类型数组
+    // 决定DX的渲染后端实现，CPU， GPU。。。。。。
     D3D_DRIVER_TYPE driverTypes[] =
     {
-        D3D_DRIVER_TYPE_HARDWARE,
-        D3D_DRIVER_TYPE_WARP,
-        D3D_DRIVER_TYPE_REFERENCE,
+        D3D_DRIVER_TYPE_HARDWARE,  //后端是GPU
+        D3D_DRIVER_TYPE_WARP,  //高性能的软件光栅化器
+        D3D_DRIVER_TYPE_REFERENCE,  //参考驱动程序，性能不好但是准确，用于调试与测试。
     };
     UINT numDriverTypes = ARRAYSIZE(driverTypes);
 
@@ -392,16 +394,17 @@ bool D3DApp::InitDirect3D()
 
     D3D_FEATURE_LEVEL featureLevel;
     D3D_DRIVER_TYPE d3dDriverType;
+    ZuoYe_GenAdapter();
     for (UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++)
     {
         d3dDriverType = driverTypes[driverTypeIndex];
-        hr = D3D11CreateDevice(nullptr, d3dDriverType, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
+        hr = D3D11CreateDevice(m_adapter.Get(), D3D_DRIVER_TYPE_UNKNOWN, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
             D3D11_SDK_VERSION, m_pd3dDevice.GetAddressOf(), &featureLevel, m_pd3dImmediateContext.GetAddressOf());
 
         if (hr == E_INVALIDARG)
         {
             // Direct3D 11.0 的API不承认D3D_FEATURE_LEVEL_11_1，所以我们需要尝试特性等级11.0以及以下的版本
-            hr = D3D11CreateDevice(nullptr, d3dDriverType, nullptr, createDeviceFlags, &featureLevels[1], numFeatureLevels - 1,
+            hr = D3D11CreateDevice(m_adapter.Get(), d3dDriverType, nullptr, createDeviceFlags, &featureLevels[1], numFeatureLevels - 1,
                 D3D11_SDK_VERSION, m_pd3dDevice.GetAddressOf(), &featureLevel, m_pd3dImmediateContext.GetAddressOf());
         }
 
@@ -437,10 +440,17 @@ bool D3DApp::InitDirect3D()
 
     // 为了正确创建 DXGI交换链，首先我们需要获取创建 D3D设备 的 DXGI工厂，否则会引发报错：
     // "IDXGIFactory::CreateSwapChain: This function is being called with a device from a different IDXGIFactory."
+#ifdef ZUOYE
+    //ComPtr<IDXGIFactory> pFactory;
+    hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)(&dxgiFactory1));
+    //pFactory.As(&dxgiFactory1);
+#else
     HR(m_pd3dDevice.As(&dxgiDevice));
     HR(dxgiDevice->GetAdapter(dxgiAdapter.GetAddressOf()));
     HR(dxgiAdapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(dxgiFactory1.GetAddressOf())));
-
+    DXGI_ADAPTER_DESC pDesc;
+    dxgiAdapter->GetDesc(&pDesc);
+#endif
     // 查看该对象是否包含IDXGIFactory2接口
     hr = dxgiFactory1.As(&dxgiFactory2);
     // 如果包含，则说明支持D3D11.1
@@ -515,8 +525,9 @@ bool D3DApp::InitDirect3D()
     
 
     // 可以禁止alt+enter全屏
-    dxgiFactory1->MakeWindowAssociation(m_hMainWnd, DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_WINDOW_CHANGES);
-
+    //dxgiFactory1->MakeWindowAssociation(m_hMainWnd, DXGI_MWA_NO_ALT_ENTER | DXGI_MWA_NO_WINDOW_CHANGES);
+    //TODO(wld)
+    //ZuoYe_SetFullScreenState(m_pSwapChain1.Get(), dxgiAdapter.Get());
     // 设置调试对象名
     D3D11SetDebugObjectName(m_pd3dImmediateContext.Get(), "ImmediateContext");
     DXGISetDebugObjectName(m_pSwapChain.Get(), "SwapChain");
@@ -554,4 +565,76 @@ void D3DApp::CalculateFrameStats()
     }
 }
 
+void D3DApp::ZuoYe_SetFullScreenState(IDXGISwapChain1* swap_chain1, IDXGIAdapter* dxgiAdapter) {
+    UINT j = 0;
+    IDXGIOutput* pOutput;
+    while (dxgiAdapter->EnumOutputs(j, &pOutput) != DXGI_ERROR_NOT_FOUND)
+    {
+        swap_chain1->SetFullscreenState(true, pOutput);
+        ++j;
+    }
+}
+
+struct DXGI_FORMAT_SUPPORT {
+    DXGI_FORMAT format;
+    std::vector<DXGI_MODE_DESC> pDescs;
+};
+
+void D3DApp::ZuoYe(){
+    IDXGIFactory* pFactory;
+    CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)(&pFactory));
+    UINT i = 0;
+    IDXGIAdapter* pAdapter;
+    std::vector<DXGI_FORMAT_SUPPORT> DXGI_FORMAT_SUPPORT_S;
+    while (pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND)
+    {
+        UINT j = 0;
+        IDXGIOutput* pOutput;
+        while (pAdapter->EnumOutputs(j, &pOutput) != DXGI_ERROR_NOT_FOUND)
+        {
+            UINT num = 0;
+            DXGI_FORMAT format;
+            UINT flags = DXGI_ENUM_MODES_INTERLACED;
+
+            
+            for (int k = 0;k <= DXGI_FORMAT_SAMPLER_FEEDBACK_MIP_REGION_USED_OPAQUE;k++) {
+                format = (DXGI_FORMAT)k;
+                if (pOutput->GetDisplayModeList(format, flags, &num, 0) != DXGI_ERROR_NOT_FOUND && num > 0) {
+                    std::vector<DXGI_MODE_DESC> pDescs_t(num);
+                    struct DXGI_FORMAT_SUPPORT pDescs;
+                    pDescs.format = format;
+                    pOutput->GetDisplayModeList(format, flags, &num, pDescs_t.data());
+                    pDescs.pDescs = pDescs_t;
+                    DXGI_FORMAT_SUPPORT_S.push_back(pDescs);
+                }
+                //else {
+                //    struct DXGI_FORMAT_SUPPORT pDescs;
+                //    pDescs.format = format;
+                //    DXGI_FORMAT_SUPPORT_S.push_back(pDescs);
+                //}
+            }
+            ++j;
+        }
+        ++i;
+    }
+    return;
+}
+
+void D3DApp::ZuoYe_GenAdapter() {
+    IDXGIFactory* pFactory;
+    CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)(&pFactory));
+    UINT i = 0;
+    IDXGIAdapter* pAdapter;
+    DXGI_ADAPTER_DESC pDesc;
+    while (pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND)
+    {
+        pAdapter->GetDesc(&pDesc);
+        if (i == 1) {
+            m_adapter = pAdapter;
+            break;
+        }
+        ++i;
+    }
+    return;
+}
 

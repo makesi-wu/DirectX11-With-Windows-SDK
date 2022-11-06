@@ -8,6 +8,8 @@
 #include <DirectXMath.h>
 #include "CpuTimer.h"
 
+#define ZuoYe
+
 class D3DApp
 {
 public:

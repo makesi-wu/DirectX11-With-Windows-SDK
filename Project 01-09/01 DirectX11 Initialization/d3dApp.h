@@ -8,6 +8,8 @@
 #include <DirectXMath.h>
 #include "CpuTimer.h"
 
+#define ZUOYE
+
 class D3DApp
 {
 public:
@@ -27,12 +29,14 @@ public:
     virtual void DrawScene() = 0;               // 子类需要实现该方法，完成每一帧的绘制
     virtual LRESULT MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
     // 窗口的消息回调函数
+    void ZuoYe();
+    void ZuoYe_SetFullScreenState(IDXGISwapChain1* swap_chain1, IDXGIAdapter* dxgiAdapter);
+    void ZuoYe_GenAdapter();
 protected:
     bool InitMainWindow();      // 窗口初始化
     bool InitDirect3D();        // Direct3D初始化
 
     void CalculateFrameStats(); // 计算每秒帧数并在窗口显示
-
 protected:
 
     HINSTANCE m_hAppInst;        // 应用实例句柄
@@ -50,8 +54,11 @@ protected:
     // 使用模板别名(C++11)简化类型名
     template <class T>
     using ComPtr = Microsoft::WRL::ComPtr<T>;
+    //IDXGI Adapter
+    ComPtr<IDXGIAdapter> m_adapter;
+
     // Direct3D 11
-    ComPtr<ID3D11Device> m_pd3dDevice;                    // D3D11设备
+    ComPtr<ID3D11Device> m_pd3dDevice;                    // D3D11设备  通常代表一个显卡
     ComPtr<ID3D11DeviceContext> m_pd3dImmediateContext;   // D3D11设备上下文
     ComPtr<IDXGISwapChain> m_pSwapChain;                  // D3D11交换链
     // Direct3D 11.1
